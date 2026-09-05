@@ -49,7 +49,7 @@ export default function Home() {
           <button className={view === "lists" ? "on" : ""} onClick={() => setView("lists")}>🧺 Shared lists</button>
         </nav>
         <div style={{ marginTop: "auto", fontSize: 12, color: "#8d897d", display: "flex", flexDirection: "column", gap: 4 }}>
-          <span title={s.useCloud ? "Shared via Supabase (all devices)" : "Local only (this browser)"}>{s.useCloud ? "☁️ shared" : "💾 this device"}</span>
+          <span title="Shared via Supabase (all devices)">☁️ shared</span>
           <button className="link" onClick={() => void s.logout()}>Logout ({s.user.name})</button>
         </div>
       </aside>
@@ -86,26 +86,28 @@ export default function Home() {
 
 function AuthScreen() {
   const s = useStore();
+  const [mode, setMode] = useState<"login" | "create">("login");
   const [email, setEmail] = useState(""); const [pass, setPass] = useState("");
   const [name, setName] = useState(""); const [err, setErr] = useState<string | null>(null);
-  const firstRun = s.members.length === 0;
+  const [busy, setBusy] = useState(false);
+  const run = async (fn: () => Promise<string | null>) => { setBusy(true); setErr(await fn()); setBusy(false); };
   return (
     <div className="auth-wrap">
       <div className="auth-card">
         <div className="brand"><div className="brand-mark">⌂</div><div><b>nest &amp; now</b><span>THE HART HOUSEHOLD</span></div></div>
-        <p style={{ color: "#8d897d", fontSize: 13 }}>Sign in with your family account.</p>
-        {!firstRun && <>
-          <input placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <input placeholder="password" type="password" value={pass} onChange={(e) => setPass(e.target.value)} />
-        </>}
-        {firstRun && <>
-          <input placeholder="your name" value={name} onChange={(e) => setName(e.target.value)} />
-          <input placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <input placeholder="password" type="password" value={pass} onChange={(e) => setPass(e.target.value)} />
-        </>}
+        {!s.useCloud && <p style={{ color: "#a94e2f" }}>Database is not configured — the app is DB-only.</p>}
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          <button className="ghost small" style={mode === "login" ? { borderColor: "#4a5240", fontWeight: 800 } : undefined} onClick={() => { setMode("login"); setErr(null); }}>Sign in</button>
+          <button className="ghost small" style={mode === "create" ? { borderColor: "#4a5240", fontWeight: 800 } : undefined} onClick={() => { setMode("create"); setErr(null); }}>Create parent</button>
+        </div>
+        {mode === "create" && <input placeholder="your name" value={name} onChange={(e) => setName(e.target.value)} />}
+        <input placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input placeholder="password" type="password" value={pass} onChange={(e) => setPass(e.target.value)} />
         {err && <p style={{ color: "#a94e2f" }}>{err}</p>}
-        {!firstRun && <button className="btn-accent" style={{ width: "100%" }} onClick={async () => setErr(await s.login(email, pass))}>Sign in</button>}
-        {firstRun && <button className="btn-accent" style={{ width: "100%" }} onClick={async () => setErr(await s.createAccount(email, pass, name))}>Create parent account</button>}
+        {mode === "login"
+          ? <button className="btn-accent" style={{ width: "100%" }} disabled={busy} onClick={() => void run(() => s.login(email, pass))}>Sign in</button>
+          : <><button className="btn-accent" style={{ width: "100%" }} disabled={busy} onClick={() => void run(() => s.createAccount(email, pass, name))}>Create parent account</button>
+            <p style={{ color: "#8d897d", fontSize: 12 }}>First setup only — afterwards family signs in, and parents add kids via Family.</p></>}
       </div>
     </div>
   );

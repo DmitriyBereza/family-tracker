@@ -7,7 +7,6 @@ export interface Profile {
   name: string;
   role: Role;
   color: string;
-  pass: string; // base64 demo only; Supabase Auth when configured
 }
 
 export interface Activity {
