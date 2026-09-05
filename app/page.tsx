@@ -29,6 +29,7 @@ function greeting(): string {
 export default function Home() {
   const s = useStore();
   const [view, setView] = useState<View>("today");
+  const [menuOpen, setMenuOpen] = useState(false);
   const todayCount = useMemo(
     () => (s.user ? getUpcoming(s.activities, s.members, s.completions, s.user, 1).length : 0),
     [s.activities, s.members, s.completions, s.user]
@@ -57,10 +58,20 @@ export default function Home() {
             <div className="eyebrow">{greeting()}, {s.user.name.toUpperCase()}</div>
             <div className="h1">Here&apos;s what&apos;s next.</div>
           </div>
-          <div className="account">
-            <span style={{ fontSize: 16 }}>🔔</span>
-            <span className="avatar" style={{ background: s.user.color }}>{s.user.name[0]}</span>
-            <span>Account ▾</span>
+          <div style={{ position: "relative" }}>
+            <button className="account" style={{ cursor: "pointer" }} onClick={() => setMenuOpen((o) => !o)} aria-haspopup="menu" aria-expanded={menuOpen}>
+              <span className="avatar" style={{ background: s.user.color }}>{s.user.name[0]}</span>
+              <span>Account ▾</span>
+            </button>
+            {menuOpen && (
+              <>
+                <div style={{ position: "fixed", inset: 0, zIndex: 10 }} onClick={() => setMenuOpen(false)} />
+                <div className="menu" role="menu">
+                  <div className="menu-head"><b>{s.user.name}</b><span>{s.user.email} • {s.user.role}</span></div>
+                  <button role="menuitem" onClick={() => { setMenuOpen(false); s.logout(); }}>Logout</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
         {view === "today" && <TodayView go={(v) => setView(v)} />}
