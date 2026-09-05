@@ -48,8 +48,9 @@ export default function Home() {
           <button className={view === "family" ? "on" : ""} onClick={() => setView("family")}>⚘ Family</button>
           <button className={view === "lists" ? "on" : ""} onClick={() => setView("lists")}>🧺 Shared lists</button>
         </nav>
-        <div style={{ marginTop: "auto", fontSize: 12, color: "#8d897d" }}>
-          <button className="link" onClick={s.logout}>Logout ({s.user.name})</button>
+        <div style={{ marginTop: "auto", fontSize: 12, color: "#8d897d", display: "flex", flexDirection: "column", gap: 4 }}>
+          <span title={s.useCloud ? "Shared via Supabase (all devices)" : "Local only (this browser)"}>{s.useCloud ? "☁️ shared" : "💾 this device"}</span>
+          <button className="link" onClick={() => void s.logout()}>Logout ({s.user.name})</button>
         </div>
       </aside>
       <div className="main">
@@ -68,7 +69,7 @@ export default function Home() {
                 <div style={{ position: "fixed", inset: 0, zIndex: 10 }} onClick={() => setMenuOpen(false)} />
                 <div className="menu" role="menu">
                   <div className="menu-head"><b>{s.user.name}</b><span>{s.user.email} • {s.user.role}</span></div>
-                  <button role="menuitem" onClick={() => { setMenuOpen(false); s.logout(); }}>Logout</button>
+                  <button role="menuitem" onClick={() => { setMenuOpen(false); void s.logout(); }}>Logout</button>
                 </div>
               </>
             )}
@@ -103,8 +104,8 @@ function AuthScreen() {
           <input placeholder="password" type="password" value={pass} onChange={(e) => setPass(e.target.value)} />
         </>}
         {err && <p style={{ color: "#a94e2f" }}>{err}</p>}
-        {!firstRun && <button className="btn-accent" style={{ width: "100%" }} onClick={() => setErr(s.login(email, pass))}>Sign in</button>}
-        {firstRun && <button className="btn-accent" style={{ width: "100%" }} onClick={() => setErr(s.createAccount(email, pass, name))}>Create parent account</button>}
+        {!firstRun && <button className="btn-accent" style={{ width: "100%" }} onClick={async () => setErr(await s.login(email, pass))}>Sign in</button>}
+        {firstRun && <button className="btn-accent" style={{ width: "100%" }} onClick={async () => setErr(await s.createAccount(email, pass, name))}>Create parent account</button>}
       </div>
     </div>
   );
@@ -254,7 +255,7 @@ function FamilyView() {
             <option value="child">child (sees own only)</option><option value="parent">parent (sees all)</option>
           </select>
           {err && <p style={{ color: "#a94e2f" }}>{err}</p>}
-          <button className="btn-accent" onClick={() => { const e = s.addMember(email, pass, name, role); setErr(e); if (!e) { setEmail(""); setPass(""); setName(""); } }}>Add member</button>
+          <button className="btn-accent" onClick={async () => { const e = await s.addMember(email, pass, name, role); setErr(e); if (!e) { setEmail(""); setPass(""); setName(""); } }}>Add member</button>
         </div></div>
       ) : <p style={{ color: "#8d897d" }}>Kids view — parents manage family here.</p>}
     </div>

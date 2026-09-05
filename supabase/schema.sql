@@ -51,11 +51,20 @@ create table if not exists shopping_items (
   created_at timestamptz default now()
 );
 
+create table if not exists redemptions (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid references profiles(id) on delete cascade,
+  reward_title text not null,
+  cost int not null,
+  created_at timestamptz default now()
+);
+
 alter table profiles enable row level security;
 alter table activities enable row level security;
 alter table completions enable row level security;
 alter table rewards enable row level security;
 alter table shopping_items enable row level security;
+alter table redemptions enable row level security;
 
 -- Permissive for family MVP (single household, authenticated users). Tighten per-household later.
 create policy "auth all profiles" on profiles for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
@@ -63,3 +72,4 @@ create policy "auth all activities" on activities for all using (auth.role() = '
 create policy "auth all completions" on completions for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "auth all rewards" on rewards for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "auth all shopping" on shopping_items for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "auth all redemptions" on redemptions for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
