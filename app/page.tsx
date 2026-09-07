@@ -230,7 +230,7 @@ function AgendaView() {
             <div className="task-body">
               {items.length === 0 && <div className="task-sub">— calm day —</div>}
               {items.map((a) => (
-                <div key={a.id} style={{ fontSize: 13, marginBottom: 4 }}>• {a.time ? fmtTime(a.time) + " · " : ""}<b>{a.title}</b> <span style={{ color: "#8d897d" }}>({assigneesFor(a, d, s.members).map((p) => p.name).join(", ")})</span></div>
+                <div key={a.id} style={{ fontSize: 13, marginBottom: 4 }}>• {a.time ? fmtTime(a.time) + " · " : ""}<b>{a.title}</b> <span style={{ color: "#8d897d" }}>({assigneesFor(a, d, s.members).map((p) => p.name).join(", ")})</span> {isParent && <button className="link" style={{ fontSize: 12 }} onClick={() => setEditing({ ...a })}>✎</button>}</div>
               ))}
             </div>
           </div>
