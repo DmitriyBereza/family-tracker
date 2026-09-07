@@ -328,6 +328,13 @@ function ActivityModal({ onClose }: { onClose(): void }) {
             ))}
           </div>
         )}
+        {f.recurrence === "interval" && (
+          <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+            <span style={{ fontSize: 13, color: "#8d897d" }}>Repeat every</span>
+            <input type="number" min={2} max={365} style={{ maxWidth: 90 }} value={f.intervalDays || 2} onChange={(e) => set({ intervalDays: Math.max(2, Number(e.target.value) || 2) })} />
+            <span style={{ fontSize: 13, color: "#8d897d" }}>days from the start date</span>
+          </div>
+        )}
         <div style={{ marginTop: 8, fontSize: 13, color: "#8d897d" }}>Visible to (empty = everyone):</div>
         <div className="chips">
           {s.members.map((m) => (
