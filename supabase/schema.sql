@@ -87,6 +87,15 @@ alter table wishlists enable row level security;
 alter table wishlist_items enable row level security;
 
 -- Permissive for family MVP (single household, authenticated users). Tighten per-household later.
+-- Drops first so the whole file is safe to re-run.
+drop policy if exists "auth all profiles" on profiles;
+drop policy if exists "auth all activities" on activities;
+drop policy if exists "auth all completions" on completions;
+drop policy if exists "auth all rewards" on rewards;
+drop policy if exists "auth all shopping" on shopping_items;
+drop policy if exists "auth all redemptions" on redemptions;
+drop policy if exists "auth all wishlists" on wishlists;
+drop policy if exists "auth all wishlist_items" on wishlist_items;
 create policy "auth all profiles" on profiles for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "auth all activities" on activities for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "auth all completions" on completions for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
