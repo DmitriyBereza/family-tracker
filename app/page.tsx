@@ -116,7 +116,8 @@ function AuthScreen() {
 function TodayView({ go }: { go(v: View): void }) {
   const s = useStore();
   const [filter, setFilter] = useState<string>("all");
-  const [showAdd, setShowAdd] = useState(false);
+  const [modal, setModal] = useState<Activity | null>(null);
+  const newTemplate = (): Activity => ({ id: uid("a"), title: "", notes: "", points: 2, recurrence: "weekly", days: [1, 2, 3, 4, 5], intervalDays: 2, startDate: todayISO(), time: "", assignedTo: [], rotation: false, active: true, createdBy: s.user!.id });
   const t = todayISO();
   const all = useMemo(() => getUpcoming(s.activities, s.members, s.completions, s.user!, 1), [s.activities, s.members, s.completions, s.user]);
   const items = filter === "all" ? all : all.filter((i) => i.assignees.some((p) => p.id === filter));
@@ -131,7 +132,7 @@ function TodayView({ go }: { go(v: View): void }) {
           <div className="d"><i />{prettyDate(t)}</div>
           <div className="sub">A gentle view of the moving pieces. You have <b style={{ color: "#2e2c26" }}>{items.length} things</b> to tend to before dinner.</div>
         </div>
-        {s.user!.role === "parent" && <button className="btn-accent" onClick={() => setShowAdd(true)}>＋ Add activity</button>}
+        {s.user!.role === "parent" && <button className="btn-accent" onClick={() => setModal(newTemplate())}>＋ Add activity</button>}
       </div>
 
       <div className="chips">
@@ -167,6 +168,7 @@ function TodayView({ go }: { go(v: View): void }) {
                       </span>
                     ))}
                     <span>👁 {vis}</span>
+                    {s.user!.role === "parent" && <button className="link" onClick={() => setModal({ ...a })}>✎ Edit</button>}
                   </div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -200,14 +202,22 @@ function TodayView({ go }: { go(v: View): void }) {
           <div className="note">ⓘ &nbsp;Visibility is set per activity. Kids only see what helps them know what&apos;s next.</div>
         </div>
       </div>
-      {showAdd && <ActivityModal onClose={() => setShowAdd(false)} />}
+      {modal && <ActivityModal key={modal.id} initial={modal} isNew={modal.title === ""} onClose={() => setModal(null)} />}
     </>
   );
 }
 
 function AgendaView() {
   const s = useStore();
+  const isParent = s.user!.role === "parent";
+  const [editing, setEditing] = useState<Activity | null>(null);
   const days = useMemo(() => { const t = todayISO(); return Array.from({ length: 7 }, (_, i) => addDaysISO(t, i)); }, []);
+  const t = todayISO();
+  const visibleToViewer = (a: Activity) =>
+    s.user!.role === "parent" || (a.assignedTo.length === 0) || a.assignedTo.includes(s.user!.id);
+  const pool = s.activities.filter((a) => a.noDate && a.active).filter(visibleToViewer);
+  const doneToday = (activityId: string, memberId: string) =>
+    s.completions.some((c) => c.activityId === activityId && c.memberId === memberId && c.date === t);
   return (
     <div>
       <div className="sect">Full agenda — next 7 days</div>
@@ -226,6 +236,33 @@ function AgendaView() {
           </div>
         );
       })}
+      <div className="sect" style={{ marginTop: 18 }}>Someday pool <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>no fixed date</span></div>
+      {pool.length === 0 && <p style={{ color: "#8d897d", fontSize: 13 }}>Empty. Tick “no fixed date” in Add/Edit to park a task here.</p>}
+      {pool.map((a) => {
+        const assignees = a.assignedTo.length === 0 ? s.members : s.members.filter((p) => a.assignedTo.includes(p.id));
+        return (
+          <div key={a.id} className="task-card">
+            <div className="time"><span>Someday</span></div>
+            <div className="bar" style={{ background: "#c9c3b2" }} />
+            <div className="task-body">
+              <h4>{a.title} <span className="tag rec">someday</span></h4>
+              <div className="task-sub">{a.notes}</div>
+              <div className="meta">
+                <span>{assignees.map((p) => p.name).join(", ") || "Everyone"}</span>
+                {isParent && <button className="link" onClick={() => setEditing({ ...a })}>✎ Edit</button>}
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {assignees.map((p) => {
+                const done = doneToday(a.id, p.id);
+                const can = isParent || p.id === s.user!.id;
+                return <button key={p.id} title={p.name} disabled={!can} className={"check" + (done ? " done" : "")} onClick={() => s.toggleDone(a.id, p.id, t)}>{done ? "✓" : ""}</button>;
+              })}
+            </div>
+          </div>
+        );
+      })}
+      {editing && <ActivityModal key={editing.id} initial={editing} isNew={false} onClose={() => setEditing(null)} />}
     </div>
   );
 }
@@ -303,16 +340,20 @@ function ListsView() {
   );
 }
 
-function ActivityModal({ onClose }: { onClose(): void }) {
+function ActivityModal({ initial, isNew, onClose }: { initial: Activity; isNew: boolean; onClose(): void }) {
   const s = useStore();
-  const [f, setF] = useState<Activity>({ id: uid("a"), title: "", notes: "", points: 2, recurrence: "weekly", days: [1, 2, 3, 4, 5], intervalDays: 2, startDate: todayISO(), time: "", assignedTo: [], rotation: false, active: true, createdBy: s.user!.id });
+  const [f, setF] = useState<Activity>({ ...initial, days: [...(initial.days || [])], assignedTo: [...initial.assignedTo] });
   const set = (p: Partial<Activity>) => setF((x) => ({ ...x, ...p }));
   return (
     <div className="modal" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ marginTop: 0 }}>Add activity</h3>
+        <h3 style={{ marginTop: 0 }}>{isNew ? "Add activity" : "Edit activity"}</h3>
         <input placeholder="e.g. School pickup" value={f.title} onChange={(e) => set({ title: e.target.value })} />
         <input placeholder="details — place, note…" value={f.notes || ""} onChange={(e) => set({ notes: e.target.value })} />
+        <label style={{ fontSize: 13, display: "block", marginTop: 4 }}>
+          <input type="checkbox" style={{ width: "auto" }} checked={!!f.noDate} onChange={(e) => set({ noDate: e.target.checked })} /> No fixed date — keep in someday pool
+        </label>
+        {!f.noDate && (
         <div style={{ display: "flex", gap: 8 }}>
           <select value={f.recurrence} onChange={(e) => set({ recurrence: e.target.value as Activity["recurrence"] })}>
             <option value="once">once</option><option value="daily">daily</option><option value="weekly">weekly</option><option value="interval">every N days</option>
@@ -320,7 +361,8 @@ function ActivityModal({ onClose }: { onClose(): void }) {
           <input type="time" value={f.time || ""} onChange={(e) => set({ time: e.target.value })} />
           <input type="date" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} />
         </div>
-        {f.recurrence === "weekly" && (
+        )}
+        {!f.noDate && f.recurrence === "weekly" && (
           <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
             {DAY_NAMES.map((d, i) => (
               <span key={i} className="chip" style={(f.days || []).includes(i) ? { background: "#4a5240", color: "#fff" } : undefined}
@@ -328,7 +370,7 @@ function ActivityModal({ onClose }: { onClose(): void }) {
             ))}
           </div>
         )}
-        {f.recurrence === "interval" && (
+        {!f.noDate && f.recurrence === "interval" && (
           <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
             <span style={{ fontSize: 13, color: "#8d897d" }}>Repeat every</span>
             <input type="number" min={2} max={365} style={{ maxWidth: 90 }} value={f.intervalDays || 2} onChange={(e) => set({ intervalDays: Math.max(2, Number(e.target.value) || 2) })} />
@@ -343,6 +385,7 @@ function ActivityModal({ onClose }: { onClose(): void }) {
           ))}
         </div>
         <label style={{ fontSize: 13 }}><input type="checkbox" style={{ width: "auto" }} checked={!!f.rotation} onChange={(e) => set({ rotation: e.target.checked })} /> rotation</label>
+        {!isNew && <label style={{ fontSize: 13 }}><input type="checkbox" style={{ width: "auto" }} checked={f.active} onChange={(e) => set({ active: e.target.checked })} /> active</label>}
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
           <button className="btn-accent" disabled={!f.title} onClick={() => { s.saveActivity(f); onClose(); }}>Save</button>
           <button className="ghost" onClick={onClose}>Cancel</button>

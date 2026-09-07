@@ -1,7 +1,7 @@
 import { Activity, Profile, UpcomingItem, addDaysISO, todayISO } from "./types";
 
 export function occursOn(a: Activity, dateISO: string): boolean {
-  if (!a.active) return false;
+  if (!a.active || a.noDate) return false;
   if (dateISO < a.startDate) return false;
   const [y, m, d] = dateISO.split("-").map(Number);
   const dow = new Date(y, m - 1, d).getDay();

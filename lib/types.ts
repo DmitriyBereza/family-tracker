@@ -22,6 +22,7 @@ export interface Activity {
   assignedTo: string[]; // [] = everyone
   rotation?: boolean;
   active: boolean;
+  noDate?: boolean; // true = someday pool, no fixed date
   createdBy: string;
 }
 

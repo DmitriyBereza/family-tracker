@@ -56,7 +56,7 @@ const mapActivity = (r: any): Activity => ({
   id: r.id, title: r.title, notes: r.notes || "", points: r.points ?? 1,
   recurrence: r.recurrence, days: r.days || [], intervalDays: r.interval_days ?? 2,
   startDate: r.start_date, time: r.time || "", assignedTo: r.assigned_to || [],
-  rotation: !!r.rotation, active: r.active !== false, createdBy: r.created_by || "",
+  rotation: !!r.rotation, active: r.active !== false, noDate: !!r.no_date, createdBy: r.created_by || "",
 });
 const mapCompletion = (r: any): Completion => ({ activityId: r.activity_id, memberId: r.member_id, date: r.date, doneAt: r.done_at });
 const mapReward = (r: any): Reward => ({ id: r.id, title: r.title, cost: r.cost });
@@ -201,7 +201,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         title: a.title, notes: a.notes || "", points: a.points, recurrence: a.recurrence,
         days: a.days || [], interval_days: a.intervalDays || 2, start_date: a.startDate,
         time: a.time || "", assigned_to: a.assignedTo, rotation: !!a.rotation,
-        active: a.active, created_by: user?.id || null,
+        active: a.active, no_date: !!a.noDate, created_by: user?.id || null,
       };
       (async () => {
         const isNew = !activities.some((x) => x.id === a.id);

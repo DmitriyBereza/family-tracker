@@ -23,6 +23,7 @@ create table if not exists activities (
   assigned_to uuid[] default '{}',
   rotation boolean default false,
   active boolean default true,
+  no_date boolean default false,
   created_by uuid references profiles(id),
   created_at timestamptz default now()
 );
@@ -73,3 +74,6 @@ create policy "auth all completions" on completions for all using (auth.role() =
 create policy "auth all rewards" on rewards for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "auth all shopping" on shopping_items for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "auth all redemptions" on redemptions for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+-- Migrations for DBs created before the column existed (safe to re-run):
+alter table activities add column if not exists no_date boolean default false;
