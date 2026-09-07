@@ -1,23 +1,16 @@
 "use client";
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Activity, COLORS, Completion, Profile, Reward, ShopItem } from "./types";
+import { Activity, COLORS, Completion, Profile, ShopItem, Wishlist, WishItem } from "./types";
 import { getSupabase } from "./supabase";
-
-interface Redemption {
-  id: string;
-  memberId: string;
-  title: string;
-  cost: number;
-}
 
 interface State {
   user: Profile | null;
   members: Profile[];
   activities: Activity[];
   completions: Completion[];
-  rewards: Reward[];
   shop: ShopItem[];
+  wishlists: Wishlist[];
   useCloud: boolean;
   login(email: string, pass: string): Promise<string | null>;
   logout(): Promise<void>;
@@ -27,12 +20,14 @@ interface State {
   saveActivity(a: Activity): void;
   deleteActivity(id: string): void;
   toggleDone(activityId: string, memberId: string, date: string): void;
-  addReward(title: string, cost: number): void;
-  deleteReward(id: string): void;
   addShop(title: string): void;
   toggleShop(id: string): void;
   clearShop(): void;
-  redeem(rewardId: string): string | null;
+  addWishlist(title: string): void;
+  deleteWishlist(id: string): void;
+  addWishItem(wishlistId: string, title: string): void;
+  toggleWishItem(wishlistId: string, itemId: string): void;
+  deleteWishItem(wishlistId: string, itemId: string): void;
 }
 
 const Ctx = createContext<State | null>(null);
@@ -59,42 +54,47 @@ const mapActivity = (r: any): Activity => ({
   rotation: !!r.rotation, active: r.active !== false, noDate: !!r.no_date, createdBy: r.created_by || "",
 });
 const mapCompletion = (r: any): Completion => ({ activityId: r.activity_id, memberId: r.member_id, date: r.date, doneAt: r.done_at });
-const mapReward = (r: any): Reward => ({ id: r.id, title: r.title, cost: r.cost });
 const mapShop = (r: any): ShopItem => ({ id: r.id, title: r.title, done: !!r.done, addedBy: r.added_by || "" });
+const mapWishItem = (r: any): WishItem => ({ id: r.id, title: r.title, done: !!r.done, addedBy: r.added_by || "" });
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [members, setMembers] = useState<Profile[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [completions, setCompletions] = useState<Completion[]>([]);
-  const [rewards, setRewards] = useState<Reward[]>([]);
   const [shop, setShop] = useState<ShopItem[]>([]);
-  const [redemptions, setRedemptions] = useState<Redemption[]>([]);
+  const [wishlists, setWishlists] = useState<Wishlist[]>([]);
   const [loaded, setLoaded] = useState(false);
   const sb: SupabaseClient | null = useMemo(() => getSupabase(), []);
   const useCloud = !!sb;
 
   async function loadAll(client: SupabaseClient, uid_: string) {
-    const [prof, acts, comps, rew, items, red] = await Promise.all([
+    const [prof, acts, comps, items, wlists, witems] = await Promise.all([
       client.from("profiles").select("*"),
       client.from("activities").select("*").order("created_at", { ascending: true }),
       client.from("completions").select("*"),
-      client.from("rewards").select("*"),
       client.from("shopping_items").select("*").order("created_at", { ascending: true }),
-      client.from("redemptions").select("*"),
+      client.from("wishlists").select("*").order("created_at", { ascending: true }),
+      client.from("wishlist_items").select("*").order("created_at", { ascending: true }),
     ]);
     if (prof.data) setMembers(prof.data.map(mapProfile));
     if (acts.data) setActivities(acts.data.map(mapActivity));
     if (comps.data) setCompletions(comps.data.map(mapCompletion));
-    if (rew.data) setRewards(rew.data.map(mapReward));
     if (items.data) setShop(items.data.map(mapShop));
-    if (red.data) setRedemptions(red.data.map((r: any) => ({ id: r.id, memberId: r.member_id, title: r.reward_title, cost: r.cost })));
+    if (wlists.data) {
+      const byList = new Map<string, WishItem[]>();
+      for (const r of witems.data || []) {
+        if (!byList.has(r.wishlist_id)) byList.set(r.wishlist_id, []);
+        byList.get(r.wishlist_id)!.push(mapWishItem(r));
+      }
+      setWishlists(wlists.data.map((w: any) => ({ id: w.id, title: w.title, items: byList.get(w.id) || [] })));
+    }
     setUserId(uid_);
   }
 
   function clearAll() {
     setUserId(null); setMembers([]); setActivities([]);
-    setCompletions([]); setRewards([]); setShop([]); setRedemptions([]);
+    setCompletions([]); setShop([]); setWishlists([]);
   }
 
   useEffect(() => {
@@ -133,7 +133,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     : null;
 
   const val: State = {
-    user, members, activities, completions, rewards, shop, useCloud,
+    user, members, activities, completions, shop, wishlists, useCloud,
 
     async login(email, pass) {
       if (!sb) return needConfig;
@@ -232,18 +232,41 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       })();
     },
 
-    addReward(title, cost) {
-      if (!sb || !title.trim()) return;
+    addWishlist(title) {
+      if (!sb || !title.trim() || !user) return;
+      const by = user.id;
       (async () => {
-        const { data, error } = await sb.from("rewards").insert({ title: title.trim(), cost: cost || 5 }).select().single();
-        if (!error && data) setRewards((s) => [...s, mapReward(data)]);
+        const { data, error } = await sb.from("wishlists").insert({ title: title.trim(), created_by: by }).select().single();
+        if (!error && data) setWishlists((s) => [...s, { id: data.id, title: data.title, items: [] }]);
       })();
     },
 
-    deleteReward(id) {
+    deleteWishlist(id) {
       if (!sb) return;
-      setRewards((s) => s.filter((r) => r.id !== id));
-      void sb.from("rewards").delete().eq("id", id);
+      setWishlists((s) => s.filter((w) => w.id !== id));
+      void sb.from("wishlists").delete().eq("id", id);
+    },
+
+    addWishItem(wishlistId, title) {
+      if (!sb || !title.trim() || !user) return;
+      const by = user.id;
+      (async () => {
+        const { data, error } = await sb.from("wishlist_items").insert({ wishlist_id: wishlistId, title: title.trim(), done: false, added_by: by }).select().single();
+        if (!error && data) setWishlists((s) => s.map((w) => (w.id === wishlistId ? { ...w, items: [...w.items, mapWishItem(data)] } : w)));
+      })();
+    },
+
+    toggleWishItem(wishlistId, itemId) {
+      if (!sb) return;
+      const cur = wishlists.flatMap((w) => w.items).find((x) => x.id === itemId);
+      setWishlists((s) => s.map((w) => (w.id === wishlistId ? { ...w, items: w.items.map((x) => (x.id === itemId ? { ...x, done: !x.done } : x)) } : w)));
+      if (cur) void sb.from("wishlist_items").update({ done: !cur.done }).eq("id", itemId);
+    },
+
+    deleteWishItem(wishlistId, itemId) {
+      if (!sb) return;
+      setWishlists((s) => s.map((w) => (w.id === wishlistId ? { ...w, items: w.items.filter((x) => x.id !== itemId) } : w)));
+      void sb.from("wishlist_items").delete().eq("id", itemId);
     },
 
     addShop(title) {
@@ -267,25 +290,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const doneIds = shop.filter((x) => x.done).map((x) => x.id);
       setShop((s) => s.filter((x) => !x.done));
       if (doneIds.length) void sb.from("shopping_items").delete().in("id", doneIds);
-    },
-
-    redeem(rewardId) {
-      if (!sb) return needConfig;
-      if (!user) return "Login first.";
-      const r = rewards.find((x) => x.id === rewardId);
-      if (!r) return "Reward gone.";
-      const earned = completions.filter((c) => c.memberId === user.id).reduce((sum, c) => {
-        const a = activities.find((x) => x.id === c.activityId);
-        return sum + (a?.points || 0);
-      }, 0);
-      const spent = redemptions.filter((x) => x.memberId === user.id).reduce((s, x) => s + x.cost, 0);
-      if (earned - spent < r.cost) return `Need ${r.cost} pts (you have ${earned - spent}).`;
-      const mid = user.id, title = r.title, cost = r.cost;
-      (async () => {
-        const { data, error } = await sb.from("redemptions").insert({ member_id: mid, reward_title: title, cost }).select().single();
-        if (!error && data) setRedemptions((s) => [...s, { id: data.id, memberId: data.member_id, title: data.reward_title, cost: data.cost }]);
-      })();
-      return null;
     },
   };
 

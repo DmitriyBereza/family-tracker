@@ -4,7 +4,7 @@ import { useStore } from "@/lib/store";
 import { Activity, todayISO, uid, addDaysISO, DAY_NAMES } from "@/lib/types";
 import { getUpcoming, assigneesFor, occursOn, streakFor } from "@/lib/recurrence";
 
-type View = "today" | "agenda" | "family" | "lists";
+type View = "today" | "agenda" | "family" | "lists" | "wishes";
 
 const BAR = ["#c05f3c", "#4f7d7a", "#c08a2d", "#7d8f6f", "#8a6fb8"];
 
@@ -47,6 +47,7 @@ export default function Home() {
           <button className={view === "agenda" ? "on" : ""} onClick={() => setView("agenda")}>🕐 Agenda</button>
           <button className={view === "family" ? "on" : ""} onClick={() => setView("family")}>⚘ Family</button>
           <button className={view === "lists" ? "on" : ""} onClick={() => setView("lists")}>🧺 Shared lists</button>
+          <button className={view === "wishes" ? "on" : ""} onClick={() => setView("wishes")}>🎁 Wishlists</button>
         </nav>
         <div style={{ marginTop: "auto", fontSize: 12, color: "#8d897d", display: "flex", flexDirection: "column", gap: 4 }}>
           <span title="Shared via Supabase (all devices)">☁️ shared</span>
@@ -79,6 +80,7 @@ export default function Home() {
         {view === "agenda" && <AgendaView />}
         {view === "family" && <FamilyView />}
         {view === "lists" && <ListsView />}
+        {view === "wishes" && <WishesView />}
       </div>
     </div>
   );
@@ -303,13 +305,11 @@ function FamilyView() {
 
 function ListsView() {
   const s = useStore();
-  const [item, setItem] = useState(""); const [rt, setRt] = useState(""); const [rc, setRc] = useState(10);
-  const [msg, setMsg] = useState<string | null>(null);
-  const isParent = s.user!.role === "parent";
+  const [item, setItem] = useState("");
   return (
-    <div className="content" style={{ gridTemplateColumns: "1fr 1fr" }}>
+    <div>
+      <div className="sect">Shared shopping list</div>
       <div className="panel white">
-        <h4>🧺 Shared shopping list</h4>
         <div style={{ display: "flex", gap: 8 }}><input placeholder="add item…" value={item} onChange={(e) => setItem(e.target.value)} />
           <button className="btn-accent" onClick={() => { s.addShop(item); setItem(""); }}>Add</button></div>
         {s.shop.map((x) => (
@@ -320,21 +320,51 @@ function ListsView() {
         ))}
         <button className="link" onClick={s.clearShop}>Clear done</button>
       </div>
-      <div className="panel white">
-        <h4>🎁 Rewards</h4>
-        {s.rewards.map((r) => (
-          <div key={r.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #e9e2d3" }}>
-            <span><b>{r.title}</b> <span className="tag rec">{r.cost} pts</span></span>
-            <span style={{ display: "flex", gap: 6 }}>
-              <button className="ghost small" onClick={() => setMsg(s.redeem(r.id) || `Redeemed: ${r.title}! 🎉`)}>Redeem</button>
-              {isParent && <button className="danger small" onClick={() => s.deleteReward(r.id)}>x</button>}
-            </span>
+    </div>
+  );
+}
+
+function WishesView() {
+  const s = useStore();
+  const isParent = s.user!.role === "parent";
+  const [title, setTitle] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  return (
+    <div>
+      <div className="sect">Wishlists</div>
+      {isParent && (
+        <div className="panel white">
+          <h4>New wishlist</h4>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input placeholder="e.g. Birthday, Holidays…" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <button className="btn-accent" onClick={() => { s.addWishlist(title); setTitle(""); }}>Create</button>
+          </div>
+        </div>
+      )}
+      {s.wishlists.length === 0 && <p style={{ color: "#8d897d", fontSize: 13 }}>No wishlists yet.</p>}
+      <div className="grid">
+        {s.wishlists.map((w) => (
+          <div key={w.id} className="panel white">
+            <h4>{w.title} {isParent && <button className="danger small" onClick={() => s.deleteWishlist(w.id)}>Delete list</button>}</h4>
+            {w.items.map((x) => (
+              <div key={x.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "1px solid #e9e2d3" }}>
+                <span style={{ textDecoration: x.done ? "line-through" : "none" }}>{x.title}</span>
+                <span style={{ display: "flex", gap: 6 }}>
+                  <button className="ghost small" onClick={() => s.toggleWishItem(w.id, x.id)}>{x.done ? "undo" : "got it"}</button>
+                  <button className="danger small" onClick={() => s.deleteWishItem(w.id, x.id)}>x</button>
+                </span>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <input
+                placeholder="add a wish…"
+                value={drafts[w.id] || ""}
+                onChange={(e) => setDrafts((d) => ({ ...d, [w.id]: e.target.value }))}
+              />
+              <button className="ghost small" onClick={() => { s.addWishItem(w.id, drafts[w.id] || ""); setDrafts((d) => ({ ...d, [w.id]: "" })); }}>Add</button>
+            </div>
           </div>
         ))}
-        {isParent && <div style={{ display: "flex", gap: 8, marginTop: 8 }}><input placeholder="new reward" value={rt} onChange={(e) => setRt(e.target.value)} />
-          <input type="number" style={{ maxWidth: 80 }} value={rc} onChange={(e) => setRc(Number(e.target.value))} />
-          <button className="ghost small" onClick={() => { s.addReward(rt, rc); setRt(""); }}>Add</button></div>}
-        {msg && <p style={{ color: "#8d897d", fontSize: 13 }}>{msg}</p>}
       </div>
     </div>
   );

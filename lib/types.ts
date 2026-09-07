@@ -33,17 +33,24 @@ export interface Completion {
   doneAt: string; // ISO
 }
 
-export interface Reward {
-  id: string;
-  title: string;
-  cost: number;
-}
-
 export interface ShopItem {
   id: string;
   title: string;
   done: boolean;
   addedBy: string;
+}
+
+export interface WishItem {
+  id: string;
+  title: string;
+  done: boolean;
+  addedBy: string;
+}
+
+export interface Wishlist {
+  id: string;
+  title: string;
+  items: WishItem[];
 }
 
 export interface UpcomingItem {

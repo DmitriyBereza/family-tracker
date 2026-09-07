@@ -60,12 +60,31 @@ create table if not exists redemptions (
   created_at timestamptz default now()
 );
 
+-- Rewards are parked for now (tables kept); wishlists replace them in the UI.
+create table if not exists wishlists (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  created_by uuid references profiles(id),
+  created_at timestamptz default now()
+);
+
+create table if not exists wishlist_items (
+  id uuid primary key default gen_random_uuid(),
+  wishlist_id uuid references wishlists(id) on delete cascade,
+  title text not null,
+  done boolean default false,
+  added_by uuid references profiles(id),
+  created_at timestamptz default now()
+);
+
 alter table profiles enable row level security;
 alter table activities enable row level security;
 alter table completions enable row level security;
 alter table rewards enable row level security;
 alter table shopping_items enable row level security;
 alter table redemptions enable row level security;
+alter table wishlists enable row level security;
+alter table wishlist_items enable row level security;
 
 -- Permissive for family MVP (single household, authenticated users). Tighten per-household later.
 create policy "auth all profiles" on profiles for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
@@ -74,6 +93,8 @@ create policy "auth all completions" on completions for all using (auth.role() =
 create policy "auth all rewards" on rewards for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "auth all shopping" on shopping_items for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "auth all redemptions" on redemptions for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "auth all wishlists" on wishlists for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "auth all wishlist_items" on wishlist_items for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 -- Migrations for DBs created before the column existed (safe to re-run):
 alter table activities add column if not exists no_date boolean default false;
